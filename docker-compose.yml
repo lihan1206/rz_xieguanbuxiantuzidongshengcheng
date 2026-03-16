@@ -1,0 +1,57 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: xieguan-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: xieguan_wire
+      MYSQL_USER: xieguan
+      MYSQL_PASSWORD: xieguan123
+    ports:
+      - "13306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: xieguan-backend
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: xieguan_wire
+      MYSQL_USER: xieguan
+      MYSQL_PASSWORD: xieguan123
+      SECRET_KEY: xieguan-very-secret-key
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: xieguan-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "13000:80"
+
+volumes:
+  mysql_data:
+
+networks:
+  default:
+    name: xieguan_wire_net
+    ipam:
+      config:
+        - subnet: 10.250.0.0/24
