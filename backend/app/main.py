@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, devices, projects, wiring
+from app.api import auth, devices, import_api, projects, wiring
 from app.core.config import settings
 from app.core.logging_config import setup_logging
 from app.db.base import Base
@@ -27,6 +27,7 @@ app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(devices.router, prefix=settings.api_prefix)
 app.include_router(wiring.router, prefix=settings.api_prefix)
+app.include_router(import_api.router, prefix=settings.api_prefix)
 
 
 @app.get("/health")
