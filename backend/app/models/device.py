@@ -25,6 +25,7 @@ class Device(Base):
     name: Mapped[str] = mapped_column(String(64), index=True)
     x: Mapped[int] = mapped_column(default=0)
     y: Mapped[int] = mapped_column(default=0)
+    z: Mapped[int] = mapped_column(default=0)  # Z坐标，支持3D布线
 
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     device_type_id: Mapped[int] = mapped_column(ForeignKey("device_types.id"), index=True)

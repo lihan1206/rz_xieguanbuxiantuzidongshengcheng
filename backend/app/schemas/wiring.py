@@ -1,8 +1,16 @@
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMBase
+
+
+class PathAlgorithm(str, Enum):
+    """路径算法类型"""
+    ASTAR = "astar"
+    DIJKSTRA = "dijkstra"
+    GENETIC = "genetic"
 
 
 class ConnectionRequest(BaseModel):
@@ -21,6 +29,7 @@ class Obstacle(BaseModel):
 class AutoRouteRequest(BaseModel):
     connections: list[ConnectionRequest] = Field(default_factory=list)
     obstacles: list[Obstacle] = Field(default_factory=list)
+    algorithm: PathAlgorithm = Field(default=PathAlgorithm.ASTAR, description="路径算法类型")
 
 
 class CableTypeCreate(BaseModel):
@@ -56,6 +65,7 @@ class ValidationIssue(BaseModel):
 class AutoRouteResponse(BaseModel):
     cable_count: int
     issues: list[ValidationIssue]
+    algorithm_used: PathAlgorithm | None = Field(None, description="使用的路径算法")
 
 
 class WiringVersionResponse(ORMBase):

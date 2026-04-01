@@ -36,6 +36,7 @@ def build_project_payload(db: Session, project_id: int) -> dict:
                 "name": device.name,
                 "x": device.x,
                 "y": device.y,
+                "z": getattr(device, 'z', 0),
                 "device_type": device.device_type.name,
             }
             for device in project.devices

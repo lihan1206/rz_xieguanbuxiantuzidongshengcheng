@@ -14,6 +14,7 @@ from app.schemas.wiring import (
     CableTypeResponse,
     ValidationIssue,
     WiringVersionResponse,
+    PathAlgorithm,
 )
 from app.services.export_service import (
     build_project_payload,
@@ -22,7 +23,19 @@ from app.services.export_service import (
     export_pdf,
     export_svg,
 )
-from app.services.wiring_engine import shortest_path
+from app.services.export_service_3d import (
+    project_to_3d_payload,
+    export_3d_json,
+    export_3d_svg,
+    export_3d_pdf,
+)
+from app.services.wiring_engine import (
+    shortest_path,
+    astar_path,
+    dijkstra_path,
+    genetic_path,
+    PathAlgorithm as PathAlgorithmEnum,
+)
 
 router = APIRouter(tags=["布线"])
 
@@ -100,6 +113,9 @@ def auto_route(
             for i in range(len(devices) - 1)
         ]
 
+    # 选择路径算法
+    algorithm_func = _get_algorithm_function(payload.algorithm)
+
     issues: list[ValidationIssue] = []
 
     for conn in connections:
@@ -118,7 +134,7 @@ def auto_route(
             cable_type = default_cable_type
 
         try:
-            path = shortest_path(
+            path = algorithm_func(
                 start=(start.x, start.y),
                 end=(end.x, end.y),
                 obstacles=[item.model_dump() for item in payload.obstacles],
@@ -180,7 +196,17 @@ def auto_route(
     db.commit()
 
     cable_count = db.query(Cable).filter(Cable.project_id == project_id).count()
-    return AutoRouteResponse(cable_count=cable_count, issues=issues)
+    return AutoRouteResponse(cable_count=cable_count, issues=issues, algorithm_used=payload.algorithm)
+
+
+def _get_algorithm_function(algorithm: PathAlgorithm | None):
+    """根据算法类型获取对应的算法函数"""
+    if algorithm == PathAlgorithmEnum.DIJKSTRA:
+        return dijkstra_path
+    elif algorithm == PathAlgorithmEnum.GENETIC:
+        return genetic_path
+    else:
+        return astar_path
 
 
 @router.get("/projects/{project_id}/validate", response_model=list[ValidationIssue])
@@ -284,6 +310,43 @@ def export_project(
         filename = f"project-{project_id}.dxf"
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不支持的导出格式")
+
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/projects/{project_id}/export-3d/{fmt}")
+def export_project_3d(
+    project_id: int,
+    fmt: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """
+    3D布线图导出
+    支持格式：3djson, 3dsvg, 3dpdf
+    """
+    _ensure_project_access(db, project_id, current_user)
+
+    payload = project_to_3d_payload(db, project_id)
+    
+    if fmt == "3djson":
+        data = export_3d_json(payload)
+        media_type = "application/json"
+        filename = f"project-{project_id}-3d.json"
+    elif fmt == "3dsvg":
+        data = export_3d_svg(payload)
+        media_type = "image/svg+xml"
+        filename = f"project-{project_id}-3d.svg"
+    elif fmt == "3dpdf":
+        data = export_3d_pdf(payload)
+        media_type = "application/pdf"
+        filename = f"project-{project_id}-3d.pdf"
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不支持的3D导出格式")
 
     return Response(
         content=data,
